@@ -1,0 +1,65 @@
+---
+title: "Dashboard"
+description: Overview of the business metrics dashboard in Inventory Pro.
+---
+
+The dashboard is the home screen of Inventory Pro. It gives you a real-time snapshot of your business at a glance, showing key counts across products, services, customers, and stock activity.
+
+## KPI cards
+
+When you log in, the dashboard fetches four metrics simultaneously from Supabase, each filtered by your `user_id` to ensure data isolation:
+
+<CardGroup cols={2}>
+  <Card title="Total Products" icon="box">
+    The number of products in your catalog. Navigates to the Products module.
+  </Card>
+  <Card title="Total Services" icon="wrench">
+    The number of services you offer. Navigates to the Services module.
+  </Card>
+  <Card title="Total Customers" icon="users">
+    The number of customer records stored in your account. Navigates to the Customers module.
+  </Card>
+  <Card title="Stock Movements" icon="arrow-right-left">
+    The total number of recorded stock movement events (both IN and OUT). Navigates to the Stock Movements module.
+  </Card>
+</CardGroup>
+
+All four counts are fetched in parallel using `Promise.all` on page load:
+
+```typescript
+const [productRes, serviceRes, customerRes, movementRes] = await Promise.all([
+  supabase.from("products").select("id", { count: "exact" }).eq("user_id", user.id),
+  supabase.from("services").select("id", { count: "exact" }).eq("user_id", user.id),
+  supabase.from("customers").select("id", { count: "exact" }).eq("user_id", user.id),
+  supabase.from("stock_movements").select("id", { count: "exact" }).eq("user_id", user.id),
+])
+```
+
+While stats are loading, each card displays `--` as a placeholder. Once data is ready, the live counts render immediately.
+
+## System information panel
+
+Below the KPI cards, the **System Information** panel confirms that your data is securely stored in Supabase and reminds you to use the navigation menu to manage your inventory data.
+
+## Navigating between modules
+
+The sidebar is present on every page in Inventory Pro. It contains links to all six modules:
+
+| Module | Path |
+|---|---|
+| Dashboard | `/dashboard` |
+| Products | `/products` |
+| Services | `/services` |
+| Inventory | `/inventory` |
+| Stock Movements | `/stock-movements` |
+| Customers | `/customers` |
+
+The active page is highlighted in the sidebar so you always know where you are.
+
+<Tip>
+  Use the sidebar to switch between modules without losing context. The sidebar persists across all pages, so you can jump directly from Customers to Stock Movements at any time.
+</Tip>
+
+## How data updates
+
+Dashboard metrics are fetched fresh each time the page loads. There is no polling or WebSocket subscription — refreshing the page or navigating back to the dashboard will retrieve the latest counts from Supabase.

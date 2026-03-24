@@ -1,0 +1,94 @@
+---
+title: "Inventory"
+description: Track stock levels with minimum and maximum thresholds per product.
+---
+
+The Inventory module gives you a live view of stock levels across all your products. Each product has exactly one inventory record that tracks its current quantity alongside configurable minimum and maximum stock thresholds.
+
+<Note>
+  Inventory records are linked one-to-one with products. Use stock movements to update quantities — recording a movement automatically increments or decrements the linked inventory quantity.
+</Note>
+
+## Inventory data model
+
+The `Inventory` model in the database schema:
+
+```prisma
+model Inventory {
+  id        String   @id @default(uuid())
+  productId String   @unique
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(0)
+  minStock  Int      @default(10)
+  maxStock  Int      @default(1000)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+The `productId` field has a `@unique` constraint, enforcing the one-to-one relationship between a product and its inventory record.
+
+## Relationship to products
+
+Every `Product` record has an optional `Inventory` relation (`inventory Inventory?`). The `Inventory` table defaults are `quantity: 0`, `minStock: 10`, and `maxStock: 1000` when a record is created.
+
+## Viewing inventory levels
+
+Navigate to **Inventory** in the sidebar. The page displays a table with the following columns:
+
+| Column | Description |
+|---|---|
+| Product | The product name |
+| SKU | The product's stock-keeping unit identifier |
+| Current Stock | The current quantity on hand |
+| Min Stock | The minimum stock threshold |
+| Max Stock | The maximum stock threshold |
+| Status | `Low Stock` if current stock is below `minStock`; `OK` otherwise |
+
+Inventory records are fetched from the API with the product relation included:
+
+```typescript
+const inventory = await prisma.inventory.findMany({
+  where: { tenantId: req.tenantId },
+  include: { product: true },
+})
+```
+
+## Stock threshold system
+
+Thresholds help you monitor stock health at a glance:
+
+- **minStock** (default: `10`) — the minimum acceptable quantity. When current stock falls below this value, the row is flagged as `Low Stock`.
+- **maxStock** (default: `1000`) — the upper limit for stock. Useful for preventing overstock.
+
+## Updating inventory directly
+
+You can update `quantity`, `minStock`, and `maxStock` for an inventory record by sending a `PUT` request to `/api/inventory/:id`:
+
+```typescript
+router.put("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { quantity, minStock, maxStock } = req.body
+
+  const inventory = await prisma.inventory.update({
+    where: { id },
+    data: { quantity, minStock, maxStock },
+  })
+  res.json(inventory)
+})
+```
+
+<Warning>
+  Directly editing inventory quantities bypasses the audit trail. Use the **Stock Movements** module to record quantity changes — each movement automatically updates the inventory quantity and creates a traceable log entry.
+</Warning>
+
+## API reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/inventory` | List all inventory records with product details |
+| `PUT` | `/api/inventory/:id` | Update quantity and/or stock thresholds |
+
+All endpoints require a valid JWT in the `Authorization: Bearer <token>` header.

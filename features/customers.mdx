@@ -1,0 +1,98 @@
+---
+title: "Customers"
+description: Store and manage customer contact information.
+---
+
+The Customers module stores contact information for the people and businesses you work with. Customer records are simple and flexible — you can capture as much or as little detail as you need.
+
+<Note>
+  All customer data is isolated to your business tenant. Customers you add are never visible to other organizations using Inventory Pro.
+</Note>
+
+## Customer data model
+
+The `Customer` model in the database schema:
+
+```prisma
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  address   String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+`name` and `email` are required. `phone` and `address` are optional.
+
+## Viewing customers
+
+Navigate to **Customers** in the sidebar. The page shows all customer records in a table with columns for Name, Email, Phone, Address, and Actions.
+
+Customers are fetched from the API filtered by your `tenantId`:
+
+```typescript
+const customers = await prisma.customer.findMany({
+  where: { tenantId: req.tenantId },
+})
+```
+
+## Adding a customer
+
+<Steps>
+  <Step title="Open the add customer form">
+    Click the **Add Customer** button in the top-right corner of the Customers page.
+  </Step>
+  <Step title="Enter the customer's name">
+    **Customer Name** is required. Enter the full name of the person or business.
+  </Step>
+  <Step title="Enter the customer's email">
+    **Email** is required. This serves as the primary contact address.
+  </Step>
+  <Step title="Add phone and address (optional)">
+    **Phone** and **Address** are optional. Fill them in if you have the information available.
+  </Step>
+  <Step title="Save the customer">
+    Click **Save Customer**. The backend creates the record scoped to your `tenantId` and the customer appears in the list.
+  </Step>
+</Steps>
+
+## Editing customer details
+
+Click **Edit** in the Actions column of any customer row. Editing sends a `PUT` request to `/api/customers/:id` with the updated fields:
+
+```typescript
+router.put("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { name, email, phone, address } = req.body
+
+  const customer = await prisma.customer.update({
+    where: { id },
+    data: { name, email, phone, address },
+  })
+  res.json(customer)
+})
+```
+
+## Deleting a customer
+
+Click **Delete** in the Actions column. This sends a `DELETE` request to `/api/customers/:id` and permanently removes the customer record.
+
+## API reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/customers` | List all customers for your tenant |
+| `POST` | `/api/customers` | Create a new customer |
+| `PUT` | `/api/customers/:id` | Update an existing customer |
+| `DELETE` | `/api/customers/:id` | Delete a customer |
+
+All endpoints require a valid JWT in the `Authorization: Bearer <token>` header.
+
+<Tip>
+  Keep customer records up to date — accurate contact information and addresses are essential for sales reporting, invoicing, and outreach.
+</Tip>

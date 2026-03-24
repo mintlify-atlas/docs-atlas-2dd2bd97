@@ -1,0 +1,136 @@
+---
+title: "Stock movements"
+description: Record and audit every inbound and outbound stock change.
+---
+
+Stock movements are an immutable audit log of every quantity change in your inventory. Every time stock is received or dispatched, a movement record is created. This gives you a complete, chronological history of how your inventory has changed over time.
+
+<Note>
+  The movements list is ordered newest first, so the most recent activity is always visible at the top.
+</Note>
+
+## Movement types
+
+Each movement has one of two types:
+
+<CardGroup cols={2}>
+  <Card title="IN" icon="arrow-down">
+    Stock received into inventory — for example, a delivery from a supplier or a returned item. Increments the product's inventory quantity.
+  </Card>
+  <Card title="OUT" icon="arrow-up">
+    Stock dispatched or consumed — for example, a sale, a write-off, or internal use. Decrements the product's inventory quantity.
+  </Card>
+</CardGroup>
+
+## How movements update inventory
+
+When you record a movement, the backend creates the movement record and then immediately updates the linked inventory quantity in a single request. The update uses atomic increment/decrement operations:
+
+```typescript
+router.post("/", async (req: Request, res: Response) => {
+  const { productId, type, quantity, reason } = req.body
+
+  const movement = await prisma.stockMovement.create({
+    data: {
+      productId,
+      type,
+      quantity,
+      reason,
+      tenantId: req.tenantId!,
+    },
+  })
+
+  // Update inventory
+  if (type === "IN") {
+    await prisma.inventory.update({
+      where: { productId },
+      data: { quantity: { increment: quantity } },
+    })
+  } else if (type === "OUT") {
+    await prisma.inventory.update({
+      where: { productId },
+      data: { quantity: { decrement: quantity } },
+    })
+  }
+
+  res.json(movement)
+})
+```
+
+This means you never need to manually update an inventory record when stock changes — recording a movement handles it automatically.
+
+## Stock movement data model
+
+The `StockMovement` model in the database schema:
+
+```prisma
+model StockMovement {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      String   @enum(["IN", "OUT"])
+  quantity  Int
+  reason    String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum MovementType {
+  IN
+  OUT
+}
+```
+
+The `reason` field is optional but strongly recommended for traceability.
+
+## Viewing the movement log
+
+Navigate to **Stock Movements** in the sidebar. The page displays a table of all movements sorted by `createdAt` descending, with columns for Product, Type, Quantity, Date, and Reason.
+
+Movements are fetched with the product relation included:
+
+```typescript
+const movements = await prisma.stockMovement.findMany({
+  where: { tenantId: req.tenantId },
+  include: { product: true },
+  orderBy: { createdAt: "desc" },
+})
+```
+
+## Recording a new movement
+
+<Steps>
+  <Step title="Open the stock movements page">
+    Click **Stock Movements** in the sidebar.
+  </Step>
+  <Step title="Select a product">
+    Choose the product whose stock is changing from the **Product** dropdown. Only products in your catalog are shown.
+  </Step>
+  <Step title="Choose the movement type">
+    Select **IN** if stock is being added, or **OUT** if stock is being removed.
+  </Step>
+  <Step title="Enter the quantity">
+    Enter the number of units being moved. This must be a positive integer.
+  </Step>
+  <Step title="Add a reason (optional)">
+    Describe why the stock is changing. This is stored in the `reason` field and appears in the movement log.
+  </Step>
+  <Step title="Submit the movement">
+    Click **Save**. The movement is recorded and the linked inventory quantity is updated immediately.
+  </Step>
+</Steps>
+
+<Tip>
+  Always fill in the reason field. Examples like `"received from supplier"`, `"sold to customer"`, or `"damaged in transit"` make it easy to understand your inventory history months later.
+</Tip>
+
+## API reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/stock-movements` | List all movements, newest first |
+| `POST` | `/api/stock-movements` | Record a new movement and update inventory |
+
+All endpoints require a valid JWT in the `Authorization: Bearer <token>` header.

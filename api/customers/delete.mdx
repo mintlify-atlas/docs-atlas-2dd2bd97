@@ -1,0 +1,60 @@
+---
+title: "Delete customer"
+description: "Permanently delete a customer record."
+---
+
+<Note>
+  All endpoints require an `Authorization: Bearer <token>` header.
+</Note>
+
+## Endpoint
+
+```
+DELETE /api/customers/:id
+```
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the customer to delete.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean" required>
+  `true` when the customer was successfully deleted.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request DELETE \
+  --url http://localhost:5000/api/customers/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+  --header 'Authorization: Bearer <token>'
+```
+
+```javascript fetch
+const response = await fetch(
+  'http://localhost:5000/api/customers/a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer <token>',
+    },
+  }
+);
+
+const result = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "success": true
+}
+```

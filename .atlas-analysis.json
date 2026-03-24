@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Inventory Pro",
+  "projectType": "saas",
+  "projectName": "Inventory Pro",
+  "projectDescription": "A multi-tenant SaaS inventory management platform with product, service, customer, and stock movement tracking built on Next.js and PostgreSQL.",
   "theme": "linden",
-  "colors": {
-    "primary": "#2563EB",
-    "light": "#EFF6FF",
-    "dark": "#1E3A8A"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/saquiray/crm"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/saquiray/crm"
-    }
-  },
+  "primaryColor": "#2563EB",
+  "lightColor": "#EFF6FF",
+  "darkColor": "#1E3A8A",
   "navigation": {
     "tabs": [
       {
@@ -114,5 +102,38 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Multi-tenant architecture with automatic data isolation per business",
+    "Product catalog management with SKU and price tracking",
+    "Service catalog management with descriptions and pricing",
+    "Real-time inventory tracking with min/max stock thresholds",
+    "Stock movement logging (IN/OUT) with reason tracking",
+    "Customer relationship management (CRM) with contact info",
+    "JWT-based authentication with bcrypt password hashing",
+    "Dashboard overview with key business metrics",
+    "Protected REST API with tenant-scoped data access",
+    "Supabase integration for frontend authentication"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/register",
+    "POST /api/auth/login",
+    "GET /api/auth/verify",
+    "GET /api/products",
+    "POST /api/products",
+    "PUT /api/products/:id",
+    "DELETE /api/products/:id",
+    "GET /api/services",
+    "POST /api/services",
+    "PUT /api/services/:id",
+    "DELETE /api/services/:id",
+    "GET /api/customers",
+    "POST /api/customers",
+    "PUT /api/customers/:id",
+    "DELETE /api/customers/:id",
+    "GET /api/inventory",
+    "PUT /api/inventory/:id",
+    "GET /api/stock-movements",
+    "POST /api/stock-movements"
+  ]
 }

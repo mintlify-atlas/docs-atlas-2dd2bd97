@@ -1,0 +1,124 @@
+---
+title: "Create customer"
+description: "Create a new customer record."
+---
+
+<Note>
+  All endpoints require an `Authorization: Bearer <token>` header.
+</Note>
+
+## Endpoint
+
+```
+POST /api/customers
+```
+
+## Request body
+
+<ParamField body="name" type="string" required>
+  Full name of the customer.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Email address of the customer.
+</ParamField>
+
+<ParamField body="phone" type="string">
+  Phone number of the customer.
+</ParamField>
+
+<ParamField body="address" type="string">
+  Mailing address of the customer.
+</ParamField>
+
+<Note>
+  `tenantId` is set automatically from the authenticated user's session. You do not need to include it in the request body.
+</Note>
+
+## Response
+
+Returns the created customer object.
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the new customer (UUID).
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Full name of the customer.
+</ResponseField>
+
+<ResponseField name="email" type="string" required>
+  Email address of the customer.
+</ResponseField>
+
+<ResponseField name="phone" type="string">
+  Phone number of the customer. `null` if not provided.
+</ResponseField>
+
+<ResponseField name="address" type="string">
+  Mailing address of the customer. `null` if not provided.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string" required>
+  UUID of the tenant this customer belongs to.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of when the customer was created.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string" required>
+  ISO 8601 timestamp of when the customer was last updated.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url http://localhost:5000/api/customers \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "name": "Acme Corp",
+    "email": "billing@acme.com",
+    "phone": "+1-555-0100",
+    "address": "123 Main St, Springfield, IL 62701"
+  }'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/customers', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer <token>',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    name: 'Acme Corp',
+    email: 'billing@acme.com',
+    phone: '+1-555-0100',
+    address: '123 Main St, Springfield, IL 62701',
+  }),
+});
+
+const customer = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Acme Corp",
+  "email": "billing@acme.com",
+  "phone": "+1-555-0100",
+  "address": "123 Main St, Springfield, IL 62701",
+  "tenantId": "f0e1d2c3-b4a5-6789-cdef-012345678901",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z"
+}
+```

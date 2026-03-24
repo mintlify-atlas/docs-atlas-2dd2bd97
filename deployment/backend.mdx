@@ -1,0 +1,90 @@
+---
+title: "Deploy the backend"
+description: Deploy the Node.js/Express backend to a production host.
+---
+
+## Supported platforms
+
+The backend is a standard Node.js/Express application and can be deployed to any Node.js hosting provider. Commonly used options include:
+
+<CardGroup cols={3}>
+  <Card title="Render" icon="server">
+    Free tier available. Supports automatic deploys from GitHub and managed PostgreSQL databases.
+  </Card>
+  <Card title="Railway" icon="train-track">
+    Simple GitHub-based deploys with built-in PostgreSQL provisioning.
+  </Card>
+  <Card title="Heroku" icon="cloud">
+    Established platform with extensive add-on ecosystem including PostgreSQL.
+  </Card>
+</CardGroup>
+
+## Deployment steps
+
+<Steps>
+  <Step title="Provision a PostgreSQL database">
+    Create a PostgreSQL database on your hosting provider and note the connection string. Most providers expose this as a `DATABASE_URL` environment variable automatically.
+
+    <Tip>
+      Use a managed PostgreSQL service such as Supabase Postgres, Neon, or Railway Postgres to avoid managing your own database server, backups, and upgrades.
+    </Tip>
+  </Step>
+
+  <Step title="Set environment variables">
+    Configure the following environment variables in your hosting provider's dashboard:
+
+    | Variable | Description |
+    |----------|-------------|
+    | `DATABASE_URL` | PostgreSQL connection string (e.g., `postgresql://user:pass@host:5432/db`) |
+    | `JWT_SECRET` | Cryptographically random secret used to sign JWTs |
+    | `PORT` | Port the Express server listens on (many providers set this automatically) |
+    | `NODE_ENV` | Set to `production` |
+  </Step>
+
+  <Step title="Run Prisma migrations">
+    Before starting the server, apply migrations to your production database. Run this command as part of your deploy pipeline or release command:
+
+    ```bash
+    npm run prisma:migrate
+    ```
+
+    This runs `prisma migrate dev` against the `DATABASE_URL` in your environment.
+  </Step>
+
+  <Step title="Start the server">
+    Start the compiled server with:
+
+    ```bash
+    npm start
+    ```
+
+    This runs `node dist/index.js`. Alternatively, for development-style deployments without a build step:
+
+    ```bash
+    npm run dev
+    ```
+
+    This runs `tsx watch src/index.ts` directly.
+  </Step>
+</Steps>
+
+## Production environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string including credentials and database name |
+| `JWT_SECRET` | Yes | Secret key for signing and verifying JWTs. Must be a strong, unique random value |
+| `PORT` | No | Port to listen on. Defaults to `5000` if not set. Most platforms set this automatically |
+| `NODE_ENV` | Yes | Set to `production` to enable production-mode behavior |
+
+<Warning>
+  Change `JWT_SECRET` to a cryptographically random value before deploying to production. You can generate one with `openssl rand -hex 32`. **Changing `JWT_SECRET` invalidates all existing user sessions** — every logged-in user will be signed out and must log in again.
+</Warning>
+
+<Warning>
+  The backend enables `cors()` globally with no origin restrictions. In production, configure the CORS origin to match your Vercel frontend domain to prevent other origins from making authenticated requests to your API. Update `backend/src/index.ts` to pass an `origin` option:
+
+  ```typescript
+  app.use(cors({ origin: "https://your-frontend.vercel.app" }))
+  ```
+</Warning>

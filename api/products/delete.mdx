@@ -1,0 +1,66 @@
+---
+title: "Delete product"
+description: "Permanently delete a product and its associated inventory record."
+---
+
+<Warning>
+  Deleting a product cascades to delete its inventory record and all associated stock movements. This action cannot be undone.
+</Warning>
+
+## Endpoint
+
+```
+DELETE /api/products/:id
+```
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token. Format: `Bearer <token>`
+</ParamField>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Product UUID.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` on successful deletion.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request DELETE \
+  --url http://localhost:5000/api/products/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+  --header 'Authorization: Bearer <token>'
+```
+
+```javascript fetch
+const response = await fetch(
+  'http://localhost:5000/api/products/a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer <token>',
+    },
+  }
+);
+
+const result = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "success": true
+}
+```

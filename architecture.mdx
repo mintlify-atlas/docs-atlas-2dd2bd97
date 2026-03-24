@@ -1,0 +1,183 @@
+---
+title: "Architecture"
+description: "How Inventory Pro's multi-tenant full-stack system is structured."
+---
+
+## Overview
+
+Inventory Pro is a full-stack multi-tenant SaaS application. Each layer has a distinct responsibility:
+
+<CardGroup cols={2}>
+  <Card title="Frontend" icon="browser">
+    Next.js 16 (App Router) with React 19 and Tailwind CSS. Handles routing, UI, and client-side session management via Supabase Auth.
+  </Card>
+  <Card title="Backend" icon="server">
+    Node.js with Express. Exposes a REST API on port 5000. Validates JWTs and enforces tenant isolation on every protected route.
+  </Card>
+  <Card title="Database" icon="database">
+    PostgreSQL accessed through Prisma ORM. Every table carries a `tenantId` column that scopes all rows to a specific tenant.
+  </Card>
+  <Card title="Auth" icon="lock">
+    Supabase manages client-side sessions. The backend independently issues and verifies JWTs that carry both `userId` and `tenantId`.
+  </Card>
+</CardGroup>
+
+## Multi-tenant data model
+
+The `Tenant` model is the root of the data hierarchy. Every resource in the system — users, products, services, customers, inventory records, and stock movements — belongs to exactly one tenant via a `tenantId` foreign key with cascade delete.
+
+```prisma schema.prisma
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  products  Product[]
+  services  Service[]
+  customers Customer[]
+  inventory Inventory[]
+  movements StockMovement[]
+}
+```
+
+Each related model references `Tenant` through a `tenantId` field:
+
+| Model | Key fields | tenantId |
+|---|---|---|
+| `User` | `email`, `password`, `name`, `role` | Required |
+| `Product` | `name`, `sku`, `price` | Required |
+| `Service` | `name`, `description`, `price` | Required |
+| `Customer` | `name`, `email`, `phone`, `address` | Required |
+| `Inventory` | `productId`, `quantity`, `minStock`, `maxStock` | Required |
+| `StockMovement` | `productId`, `type` (`IN`/`OUT`), `quantity`, `reason` | Required |
+
+Deleting a `Tenant` cascades to all related records across every table.
+
+## Data isolation
+
+Tenant isolation is enforced at the API layer, not the application layer. The auth middleware extracts `tenantId` from the verified JWT and attaches it to every incoming request:
+
+```typescript backend/src/middleware/auth.ts
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing or invalid authorization header" })
+  }
+
+  const token = authHeader.slice(7)
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key") as any
+    req.userId = decoded.userId
+    req.tenantId = decoded.tenantId
+    next()
+  } catch (error) {
+    res.status(401).json({ error: "Invalid token" })
+  }
+}
+```
+
+All route handlers then use `req.tenantId` as a mandatory filter in every Prisma query. A user from tenant A cannot read or modify data belonging to tenant B — even if they know the resource ID.
+
+## Authentication flow
+
+1. **Registration** — `POST /api/auth/register` creates a `Tenant` record and an associated admin `User` in a single transaction. The response includes a signed JWT.
+2. **Login** — `POST /api/auth/login` verifies credentials and returns a JWT containing `userId` and `tenantId`.
+3. **Token verification** — `GET /api/auth/verify` confirms the token is valid without requiring a database lookup for the full user record.
+4. **Protected routes** — every request to `/api/products`, `/api/services`, `/api/customers`, `/api/inventory`, and `/api/stock-movements` passes through `authMiddleware` before reaching the route handler.
+
+## API routes
+
+| Route prefix | Visibility | Description |
+|---|---|---|
+| `POST /api/auth/register` | Public | Create a new tenant and admin user |
+| `POST /api/auth/login` | Public | Authenticate and receive a JWT |
+| `GET /api/auth/verify` | Public | Verify a JWT |
+| `GET /api/products` | Protected | List products for the authenticated tenant |
+| `POST /api/products` | Protected | Create a product |
+| `PUT /api/products/:id` | Protected | Update a product |
+| `DELETE /api/products/:id` | Protected | Delete a product |
+| `GET /api/services` | Protected | List services |
+| `POST /api/services` | Protected | Create a service |
+| `GET /api/customers` | Protected | List customers |
+| `POST /api/customers` | Protected | Create a customer |
+| `GET /api/inventory` | Protected | List inventory records |
+| `PUT /api/inventory/:id` | Protected | Update stock levels |
+| `GET /api/stock-movements` | Protected | List stock movements |
+| `POST /api/stock-movements` | Protected | Record a stock movement |
+
+In `index.ts`, all protected routers are registered after the global `authMiddleware`:
+
+```typescript backend/src/index.ts
+// Public routes
+app.use("/api/auth", authRouter)
+
+// Protected routes
+app.use(authMiddleware)
+app.use("/api/products", productsRouter)
+app.use("/api/services", servicesRouter)
+app.use("/api/customers", customersRouter)
+app.use("/api/inventory", inventoryRouter)
+app.use("/api/stock-movements", movementsRouter)
+```
+
+## Request lifecycle
+
+<Steps>
+  <Step title="Client sends request">
+    The browser or API client sends an HTTP request to the Next.js frontend or directly to the Express API. For data requests, it includes an `Authorization: Bearer <token>` header.
+  </Step>
+  <Step title="Next.js frontend">
+    Next.js serves the React UI. Data fetching calls are forwarded to the Express backend at `NEXT_PUBLIC_API_URL` (default: `http://localhost:5000/api`).
+  </Step>
+  <Step title="Auth middleware">
+    `authMiddleware` intercepts the request, extracts the Bearer token, and calls `jwt.verify()`. On success, it attaches `userId` and `tenantId` to the `req` object and calls `next()`.
+  </Step>
+  <Step title="Route handler + Prisma query">
+    The route handler runs a Prisma query that always includes `tenantId: req.tenantId` in its `where` clause, ensuring results are scoped to the authenticated tenant.
+  </Step>
+  <Step title="PostgreSQL returns data">
+    Prisma executes the parameterised SQL against PostgreSQL and returns only rows matching the tenant.
+  </Step>
+  <Step title="Response">
+    The route handler serialises the result as JSON and sends it back through Express → Next.js → browser.
+  </Step>
+</Steps>
+
+## Frontend authentication
+
+The client-side session is managed by **Supabase Auth**. The `AuthProvider` component wraps the entire application and tracks the current session:
+
+```typescript lib/auth-context.tsx
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+
+    checkUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription?.unsubscribe()
+  }, [])
+  // ...
+}
+```
+
+The Next.js middleware (`middleware.ts`) calls `updateSession` on every request to keep the Supabase session fresh, excluding static assets.
+
+For direct API calls to the Express backend, the JWT returned at login is stored in `localStorage` and attached as the `Authorization` header on each request.

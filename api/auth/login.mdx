@@ -1,0 +1,102 @@
+---
+title: 'Login'
+description: Authenticate and receive a JWT token.
+---
+
+<Badge color="green">POST</Badge> `/api/auth/login`
+
+Verifies the provided credentials and returns a signed JWT containing the `userId` and `tenantId`. Use the returned token to authenticate all subsequent requests to protected endpoints.
+
+<Tip>
+  Store the token in `localStorage` (or a secure cookie) after login, then attach it to every protected request as `Authorization: Bearer <token>`.
+</Tip>
+
+## Request body
+
+<ParamField body="email" type="string" required>
+  User email address.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password.
+</ParamField>
+
+## Response
+
+<ResponseField name="token" type="string">
+  JWT bearer token. Valid for all protected API routes.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      UUID of the authenticated user.
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      User email address.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      User display name.
+    </ResponseField>
+    <ResponseField name="tenantId" type="string">
+      UUID of the tenant this user belongs to.
+    </ResponseField>
+    <ResponseField name="role" type="string">
+      User role (e.g., `"admin"` or `"user"`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Errors
+
+| Status | Error message | Description |
+|--------|---------------|-------------|
+| `401` | `Invalid credentials` | The email does not exist or the password is incorrect. |
+| `500` | `Login failed` | An unexpected server error occurred. |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url http://localhost:5000/api/auth/login \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "email": "admin@acme.com",
+    "password": "s3cur3p@ss"
+  }'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'admin@acme.com',
+    password: 's3cur3p@ss',
+  }),
+});
+
+const { token, user } = await response.json();
+
+// Store and reuse the token
+localStorage.setItem('token', token);
+```
+
+</CodeGroup>
+
+### Success response
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "a3f1e2d4-bc56-4789-9012-3def45678901",
+    "email": "admin@acme.com",
+    "name": "Jane Doe",
+    "tenantId": "b7c2d3e4-f567-4890-ab12-cdef01234567",
+    "role": "admin"
+  }
+}
+```

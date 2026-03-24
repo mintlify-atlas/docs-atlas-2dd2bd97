@@ -1,0 +1,114 @@
+---
+title: "Environment variables"
+description: "All environment variables required to run Inventory Pro."
+---
+
+<Warning>
+  Never commit `.env` or `.env.local` files to source control. Add them to `.gitignore` before your first commit.
+</Warning>
+
+## Frontend variables
+
+Create a `.env.local` file in the project root (next to `package.json`).
+
+```env .env.local
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `NEXT_PUBLIC_API_URL` | Yes | `http://localhost:5000/api` | Full URL of the Express backend API, including the `/api` prefix. Change this to your hosted backend URL in production. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | — | Your Supabase project URL. Found in **Project Settings → API** in the Supabase dashboard. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | — | Your Supabase project's anon/public key. Found in **Project Settings → API** in the Supabase dashboard. |
+
+<Note>
+  Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser bundle. Do not put secrets in `NEXT_PUBLIC_` variables.
+</Note>
+
+## Backend variables
+
+Create a `.env` file inside the `backend/` directory.
+
+```env backend/.env
+DATABASE_URL="postgresql://user:password@localhost:5432/inventory_db"
+JWT_SECRET="your-super-secret-jwt-key"
+PORT=5000
+NODE_ENV=development
+```
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `DATABASE_URL` | Yes | — | PostgreSQL connection string. Format: `postgresql://user:password@host:port/database` |
+| `JWT_SECRET` | Yes | — | Secret key used to sign and verify JWTs. Must be a long random string in production. |
+| `PORT` | No | `5000` | Port the Express server listens on. |
+| `NODE_ENV` | No | `development` | Runtime environment. Set to `production` for deployed instances. |
+
+### DATABASE_URL
+
+Prisma reads `DATABASE_URL` directly from the environment to connect to PostgreSQL:
+
+```prisma backend/prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
+
+Local example:
+
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/inventory_db"
+```
+
+For a hosted database, replace the host, port, user, password, and database name with the values from your provider.
+
+### JWT_SECRET
+
+The auth middleware signs and verifies every JWT using this value:
+
+```typescript backend/src/middleware/auth.ts
+const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key") as any
+req.userId = decoded.userId
+req.tenantId = decoded.tenantId
+```
+
+<Tip>
+  Generate a strong secret for production:
+  ```bash
+  openssl rand -base64 32
+  ```
+  Copy the output and set it as `JWT_SECRET`. Never reuse a development secret in production.
+</Tip>
+
+### PORT
+
+The Express server defaults to `5000` if `PORT` is not set:
+
+```typescript backend/src/index.ts
+const PORT = process.env.PORT || 5000
+// ...
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
+})
+```
+
+If you change `PORT`, update `NEXT_PUBLIC_API_URL` in `.env.local` to match.
+
+## Complete example files
+
+<CodeGroup>
+  ```env .env.local
+  NEXT_PUBLIC_API_URL=http://localhost:5000/api
+  NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+  ```
+
+  ```env backend/.env
+  DATABASE_URL="postgresql://postgres:password@localhost:5432/inventory_db"
+  JWT_SECRET="change-me-use-openssl-rand-base64-32"
+  PORT=5000
+  NODE_ENV=development
+  ```
+</CodeGroup>

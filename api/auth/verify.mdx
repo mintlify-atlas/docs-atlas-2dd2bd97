@@ -1,0 +1,52 @@
+---
+title: 'Verify token'
+description: Verify a JWT token and retrieve the authenticated user's identity.
+---
+
+<Badge color="blue">GET</Badge> `/api/auth/verify`
+
+Returns the `userId` and `tenantId` that the auth middleware decoded from the JWT on the current request. This endpoint is registered under `/api/auth` which is a public route prefix — it does not independently verify the token. In practice it is most useful when called after passing through the global auth middleware (i.e., as an internal utility rather than a standalone verification endpoint).
+
+<Note>
+  The `/api/auth` prefix is registered before the global `authMiddleware` in `index.ts`, so this endpoint does not independently validate the token. It returns the `userId` and `tenantId` values already attached to the request by middleware from a prior step.
+</Note>
+
+## Request headers
+
+<ParamField header="Authorization" type="string">
+  Bearer token in the format `Bearer <token>`. Required for the middleware to attach user identity to the request.
+</ParamField>
+
+## Response
+
+<ResponseField name="userId" type="string">
+  UUID of the authenticated user decoded from the token.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string">
+  UUID of the authenticated user's tenant decoded from the token.
+</ResponseField>
+
+## Errors
+
+| Status | Error message | Description |
+|--------|---------------|-------------|
+| `401` | `Missing or invalid authorization header` | The `Authorization` header is absent or does not start with `Bearer `. |
+| `401` | `Invalid token` | The token is malformed, expired, or signed with an incorrect secret. |
+
+## Example
+
+```bash curl
+curl --request GET \
+  --url http://localhost:5000/api/auth/verify \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Success response
+
+```json
+{
+  "userId": "a3f1e2d4-bc56-4789-9012-3def45678901",
+  "tenantId": "b7c2d3e4-f567-4890-ab12-cdef01234567"
+}
+```

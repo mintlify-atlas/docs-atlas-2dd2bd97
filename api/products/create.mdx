@@ -1,0 +1,119 @@
+---
+title: "Create product"
+description: "Create a new product in the authenticated tenant's catalog."
+---
+
+<Note>
+  `tenantId` is set automatically from the JWT — do not pass it in the request body.
+</Note>
+
+## Endpoint
+
+```
+POST /api/products
+```
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token. Format: `Bearer <token>`
+</ParamField>
+
+## Request body
+
+<ParamField body="name" type="string" required>
+  Product display name.
+</ParamField>
+
+<ParamField body="sku" type="string" required>
+  Stock keeping unit identifier.
+</ParamField>
+
+<ParamField body="price" type="number" required>
+  Product price.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  Unique product identifier (UUID).
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Product display name.
+</ResponseField>
+
+<ResponseField name="sku" type="string">
+  Stock keeping unit identifier.
+</ResponseField>
+
+<ResponseField name="price" type="number">
+  Product price.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string">
+  UUID of the tenant that owns this product.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp of when the product was created.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  ISO 8601 timestamp of the last update.
+</ResponseField>
+
+## Error responses
+
+| Status | Description |
+| ------ | ----------- |
+| `500`  | Failed to create product. |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url http://localhost:5000/api/products \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "name": "Wireless Keyboard",
+    "sku": "WK-1001",
+    "price": 49.99
+  }'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/products', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer <token>',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    name: 'Wireless Keyboard',
+    sku: 'WK-1001',
+    price: 49.99,
+  }),
+});
+
+const product = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Wireless Keyboard",
+  "sku": "WK-1001",
+  "price": 49.99,
+  "tenantId": "t9e8d7c6-b5a4-3210-fedc-ba9876543210",
+  "createdAt": "2026-03-24T10:00:00.000Z",
+  "updatedAt": "2026-03-24T10:00:00.000Z"
+}
+```

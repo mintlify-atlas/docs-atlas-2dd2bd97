@@ -1,0 +1,297 @@
+---
+title: "Authentication"
+description: How Inventory Pro handles authentication with JWT and Supabase.
+---
+
+## Two-layer auth architecture
+
+Inventory Pro uses two separate authentication systems that work together:
+
+<CardGroup cols={2}>
+  <Card title="Supabase (frontend)" icon="layout-dashboard">
+    Manages the user session in the browser. Supabase tracks whether a user is logged in and refreshes session tokens automatically via cookies.
+  </Card>
+  <Card title="JWT (backend API)" icon="server">
+    Every protected API request requires a JWT signed with `JWT_SECRET`. The token carries `userId` and `tenantId` so the backend can scope all queries to the correct tenant.
+  </Card>
+</CardGroup>
+
+## Frontend auth (Supabase)
+
+The frontend uses the `@supabase/ssr` package with three Supabase client helpers:
+
+<Tabs>
+  <Tab title="Browser client">
+    Used in client components. Created with `createBrowserClient` from `@supabase/ssr`:
+
+    ```typescript lib/supabase/client.ts
+    import { createBrowserClient } from "@supabase/ssr"
+
+    export function createClient() {
+      return createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="Server client">
+    Used in Server Components and Route Handlers. Reads and writes cookies from the Next.js `cookies()` store:
+
+    ```typescript lib/supabase/server.ts
+    import { createServerClient } from "@supabase/ssr"
+    import { cookies } from "next/headers"
+
+    export async function createClient() {
+      const cookieStore = await cookies()
+
+      return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll()
+            },
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(({ name, value, options }) =>
+                  cookieStore.set(name, value, options)
+                )
+              } catch {
+                // Safe to ignore when called from a Server Component
+              }
+            },
+          },
+        }
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="Middleware client">
+    Refreshes the Supabase session on every request and redirects unauthenticated users to `/login`:
+
+    ```typescript lib/supabase/middleware.ts
+    import { createServerClient } from "@supabase/ssr"
+    import { NextResponse, type NextRequest } from "next/server"
+
+    export async function updateSession(request: NextRequest) {
+      let supabaseResponse = NextResponse.next({ request })
+
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll()
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value }) =>
+                request.cookies.set(name, value)
+              )
+              supabaseResponse = NextResponse.next({ request })
+              cookiesToSet.forEach(({ name, value, options }) =>
+                supabaseResponse.cookies.set(name, value, options)
+              )
+            },
+          },
+        }
+      )
+
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // Redirect to login if not authenticated
+      if (
+        user === null &&
+        !request.nextUrl.pathname.startsWith("/login") &&
+        !request.nextUrl.pathname.startsWith("/register") &&
+        !request.nextUrl.pathname.startsWith("/")
+      ) {
+        const url = request.nextUrl.clone()
+        url.pathname = "/login"
+        return NextResponse.redirect(url)
+      }
+
+      return supabaseResponse
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Auth context
+
+`AuthProvider` wraps the application and exposes the current Supabase user, a loading state, and a `logout` function to all client components:
+
+```typescript lib/auth-context.tsx
+"use client"
+
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    // Check for an existing session on mount
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+
+    checkUser()
+
+    // Keep state in sync with Supabase auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null)
+      }
+    )
+
+    return () => subscription?.unsubscribe()
+  }, [])
+
+  const logout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setUser(null)
+    router.push("/login")
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+```
+
+## Backend auth (JWT)
+
+The backend issues and verifies JWTs signed with `JWT_SECRET`. Each token payload contains `userId` and `tenantId`.
+
+### Auth middleware
+
+All protected routes pass through `authMiddleware`, which extracts the Bearer token, verifies it with `jsonwebtoken`, and attaches `userId` and `tenantId` to the request object:
+
+```typescript backend/src/middleware/auth.ts
+import type { Request, Response, NextFunction } from "express"
+import jwt from "jsonwebtoken"
+
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string
+      tenantId?: string
+    }
+  }
+}
+
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing or invalid authorization header" })
+  }
+
+  const token = authHeader.slice(7)
+
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "your-secret-key"
+    ) as any
+    req.userId = decoded.userId
+    req.tenantId = decoded.tenantId
+    next()
+  } catch (error) {
+    res.status(401).json({ error: "Invalid token" })
+  }
+}
+```
+
+### Protecting routes
+
+`authMiddleware` is applied globally to all routes registered after it. Public auth routes (`/api/auth/*`) are registered before the middleware:
+
+```typescript backend/src/index.ts
+// Public routes — no token required
+app.use("/api/auth", authRouter)
+
+// All routes below this line require a valid JWT
+app.use(authMiddleware)
+app.use("/api/products", productsRouter)
+app.use("/api/services", servicesRouter)
+app.use("/api/customers", customersRouter)
+app.use("/api/inventory", inventoryRouter)
+app.use("/api/stock-movements", movementsRouter)
+```
+
+## Registration flow
+
+`POST /api/auth/register` accepts a tenant name, admin name, email, and password. It creates a `Tenant` and a `User` atomically in a single Prisma transaction, then returns a signed JWT:
+
+```json Request body
+{
+  "tenantName": "Acme Corp",
+  "adminName": "Jane Smith",
+  "email": "jane@acme.com",
+  "password": "strongpassword"
+}
+```
+
+```json Response
+{
+  "token": "<signed JWT>",
+  "user": { "id": "...", "name": "Jane Smith", "email": "jane@acme.com", "tenantId": "..." }
+}
+```
+
+## Login flow
+
+`POST /api/auth/login` looks up the user by email, verifies the password with `bcrypt`, and returns a fresh JWT:
+
+```json Request body
+{
+  "email": "jane@acme.com",
+  "password": "strongpassword"
+}
+```
+
+```json Response
+{
+  "token": "<signed JWT>",
+  "user": { "id": "...", "name": "Jane Smith", "email": "jane@acme.com", "tenantId": "..." }
+}
+```
+
+## Token storage
+
+The frontend stores the JWT in `localStorage` after a successful login and sends it as an `Authorization: Bearer <token>` header on every API request:
+
+```typescript
+// Storing the token after login
+localStorage.setItem("token", data.token)
+
+// Sending the token with API requests
+fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`, {
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  },
+})
+```
+
+<Warning>
+  Storing JWTs in `localStorage` exposes them to XSS attacks. For production deployments, consider storing the token in an HttpOnly cookie instead, which is inaccessible to JavaScript.
+</Warning>
+
+<Tip>
+  Set `JWT_SECRET` to a cryptographically random value of at least 32 bytes. You can generate one with `openssl rand -hex 32`. Never commit this value to source control.
+</Tip>

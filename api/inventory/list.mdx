@@ -1,0 +1,122 @@
+---
+title: "List inventory"
+description: "Retrieve inventory levels for all products."
+---
+
+<Note>
+  All endpoints require an `Authorization: Bearer <token>` header.
+</Note>
+
+## Endpoint
+
+```
+GET /api/inventory
+```
+
+## Request
+
+No request parameters.
+
+## Response
+
+Returns an array of inventory objects. Each record includes the associated product via a JOIN (`include: { product: true }` in Prisma).
+
+<Note>
+  Inventory records include the associated product details fetched via a Prisma `include: &#123; product: true &#125;` JOIN. You do not need to make a separate request to look up product information.
+</Note>
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the inventory record (UUID).
+</ResponseField>
+
+<ResponseField name="productId" type="string" required>
+  UUID of the product this inventory record tracks.
+</ResponseField>
+
+<ResponseField name="quantity" type="number" required>
+  Current stock quantity on hand.
+</ResponseField>
+
+<ResponseField name="minStock" type="number" required>
+  Minimum stock threshold. Default is `10`.
+</ResponseField>
+
+<ResponseField name="maxStock" type="number" required>
+  Maximum stock threshold. Default is `1000`.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string" required>
+  UUID of the tenant this inventory record belongs to.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of when the record was created.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string" required>
+  ISO 8601 timestamp of when the record was last updated.
+</ResponseField>
+
+<ResponseField name="product" type="object" required>
+  The product linked to this inventory record.
+  <Expandable title="properties">
+    <ResponseField name="id" type="string" required>
+      Unique identifier for the product (UUID).
+    </ResponseField>
+    <ResponseField name="name" type="string" required>
+      Display name of the product.
+    </ResponseField>
+    <ResponseField name="sku" type="string" required>
+      Stock keeping unit identifier.
+    </ResponseField>
+    <ResponseField name="price" type="number" required>
+      Unit price of the product.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url http://localhost:5000/api/inventory \
+  --header 'Authorization: Bearer <token>'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/inventory', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer <token>',
+  },
+});
+
+const inventory = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+[
+  {
+    "id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+    "productId": "d4e5f6a7-b8c9-0123-defa-456789012345",
+    "quantity": 142,
+    "minStock": 20,
+    "maxStock": 500,
+    "tenantId": "f0e1d2c3-b4a5-6789-cdef-012345678901",
+    "createdAt": "2024-01-10T09:00:00.000Z",
+    "updatedAt": "2024-03-18T16:30:00.000Z",
+    "product": {
+      "id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+      "name": "Widget Pro 3000",
+      "sku": "WGT-3000",
+      "price": 49.99
+    }
+  }
+]
+```

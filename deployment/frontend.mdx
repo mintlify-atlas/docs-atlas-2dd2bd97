@@ -1,0 +1,83 @@
+---
+title: "Deploy the frontend"
+description: Deploy the Next.js frontend to Vercel.
+---
+
+## Recommended platform
+
+Vercel is the recommended platform for deploying the Inventory Pro frontend. It provides zero-configuration Next.js deployments, automatic HTTPS, and global CDN delivery.
+
+## Deployment steps
+
+<Steps>
+  <Step title="Build locally to check for errors">
+    Before deploying, verify the production build succeeds on your machine:
+
+    ```bash
+    npm run build
+    ```
+
+    Fix any build errors before proceeding. Note that `next.config.mjs` currently sets `typescript.ignoreBuildErrors: true` — it is good practice to resolve TypeScript errors rather than relying on this flag in production.
+  </Step>
+
+  <Step title="Push code to GitHub">
+    Commit your changes and push to a GitHub repository:
+
+    ```bash
+    git add .
+    git commit -m "Ready for deployment"
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Import the repository in Vercel">
+    1. Go to [vercel.com](https://vercel.com) and sign in.
+    2. Click **Add New Project**.
+    3. Select your GitHub repository from the list.
+    4. Vercel will automatically detect the Next.js framework. Leave the build and output settings at their defaults.
+  </Step>
+
+  <Step title="Set environment variables">
+    In the Vercel project settings, navigate to **Settings → Environment Variables** and add:
+
+    | Variable | Value |
+    |----------|-------|
+    | `NEXT_PUBLIC_API_URL` | Your production backend URL (e.g., `https://your-backend.onrender.com/api`) |
+    | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+
+    Set these for the **Production** environment (and optionally **Preview** and **Development**).
+  </Step>
+
+  <Step title="Deploy">
+    Click **Deploy**. Vercel will build and deploy your application. Once complete, your frontend will be live at a `*.vercel.app` URL or your custom domain.
+  </Step>
+</Steps>
+
+<Note>
+  `NEXT_PUBLIC_API_URL` must point to your deployed backend. If this variable is missing or incorrect, all API calls (login, product listing, etc.) will fail. The local default is `http://localhost:5000/api`, which is not reachable from a deployed frontend.
+</Note>
+
+<Tip>
+  Vercel creates a unique preview deployment for every pull request. Use preview deployments to test changes in a production-like environment before merging to your main branch.
+</Tip>
+
+## next.config.mjs
+
+The `next.config.mjs` file at the project root can be customized for production settings:
+
+```javascript next.config.mjs
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  images: {
+    unoptimized: true,
+  },
+}
+
+export default nextConfig
+```
+
+For production, consider enabling image optimization by removing `unoptimized: true`, and resolving any TypeScript errors so you can remove the `ignoreBuildErrors` flag.

@@ -1,0 +1,111 @@
+---
+title: 'Register'
+description: Create a new tenant and admin user account.
+---
+
+<Badge color="green">POST</Badge> `/api/auth/register`
+
+Creates a new `Tenant` and admin `User` in a single database transaction. Returns a signed JWT token you can use to authenticate subsequent requests.
+
+<Note>
+  This is the only endpoint that creates a new `Tenant`. All other users must be added to an existing tenant after registration.
+</Note>
+
+## Request body
+
+<ParamField body="email" type="string" required>
+  Admin user email address. Must be unique across all users.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Admin user password. Stored as a bcrypt hash (10 salt rounds).
+</ParamField>
+
+<ParamField body="tenantName" type="string" required>
+  Name of the business or organization. Becomes the `name` field on the created `Tenant`.
+</ParamField>
+
+<ParamField body="adminName" type="string" required>
+  Full name of the admin user.
+</ParamField>
+
+## Response
+
+<ResponseField name="token" type="string">
+  JWT bearer token. Include this in the `Authorization` header for all protected API routes.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      UUID of the created user.
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      User email address.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Admin display name.
+    </ResponseField>
+    <ResponseField name="tenantId" type="string">
+      UUID of the created tenant.
+    </ResponseField>
+    <ResponseField name="role" type="string">
+      Always `"admin"` for newly registered users.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Errors
+
+| Status | Error message | Description |
+|--------|---------------|-------------|
+| `400` | `User already exists` | A user with the provided email is already registered. |
+| `500` | `Registration failed` | An unexpected server error occurred. |
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url http://localhost:5000/api/auth/register \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "email": "admin@acme.com",
+    "password": "s3cur3p@ss",
+    "tenantName": "Acme Corp",
+    "adminName": "Jane Doe"
+  }'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/auth/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'admin@acme.com',
+    password: 's3cur3p@ss',
+    tenantName: 'Acme Corp',
+    adminName: 'Jane Doe',
+  }),
+});
+
+const data = await response.json();
+```
+
+</CodeGroup>
+
+### Success response
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "a3f1e2d4-bc56-4789-9012-3def45678901",
+    "email": "admin@acme.com",
+    "name": "Jane Doe",
+    "tenantId": "b7c2d3e4-f567-4890-ab12-cdef01234567",
+    "role": "admin"
+  }
+}
+```

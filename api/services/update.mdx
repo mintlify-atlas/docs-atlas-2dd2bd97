@@ -1,0 +1,116 @@
+---
+title: "Update service"
+description: "Update an existing service's name, description, or price."
+---
+
+## Endpoint
+
+```
+PUT /api/services/:id
+```
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token. Format: `Bearer <token>`
+</ParamField>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Service UUID.
+</ParamField>
+
+## Request body
+
+<ParamField body="name" type="string">
+  Updated service display name.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated description of the service.
+</ParamField>
+
+<ParamField body="price" type="number">
+  Updated service price.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  Unique service identifier (UUID).
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Service display name.
+</ResponseField>
+
+<ResponseField name="description" type="string | null">
+  Optional description of the service.
+</ResponseField>
+
+<ResponseField name="price" type="number">
+  Service price.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string">
+  UUID of the tenant that owns this service.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp of when the service was created.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  ISO 8601 timestamp of the last update.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request PUT \
+  --url http://localhost:5000/api/services/c3d4e5f6-a7b8-9012-cdef-012345678902 \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "description": "On-site installation and configuration of hardware components",
+    "price": 140.00
+  }'
+```
+
+```javascript fetch
+const response = await fetch(
+  'http://localhost:5000/api/services/c3d4e5f6-a7b8-9012-cdef-012345678902',
+  {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'Bearer <token>',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      description: 'On-site installation and configuration of hardware components',
+      price: 140.00,
+    }),
+  }
+);
+
+const service = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "id": "c3d4e5f6-a7b8-9012-cdef-012345678902",
+  "name": "Hardware Installation",
+  "description": "On-site installation and configuration of hardware components",
+  "price": 140.00,
+  "tenantId": "t9e8d7c6-b5a4-3210-fedc-ba9876543210",
+  "createdAt": "2026-01-20T10:00:00.000Z",
+  "updatedAt": "2026-03-24T11:30:00.000Z"
+}
+```

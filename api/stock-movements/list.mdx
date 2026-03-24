@@ -1,0 +1,138 @@
+---
+title: "List stock movements"
+description: "Retrieve all stock movements ordered newest first."
+---
+
+<Note>
+  All endpoints require an `Authorization: Bearer <token>` header.
+</Note>
+
+## Endpoint
+
+```
+GET /api/stock-movements
+```
+
+## Request
+
+No request parameters.
+
+## Response
+
+Returns an array of stock movement objects including the linked product.
+
+<Note>
+  Movements are always returned newest-first (`orderBy: createdAt desc`).
+</Note>
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the stock movement (UUID).
+</ResponseField>
+
+<ResponseField name="productId" type="string" required>
+  UUID of the product this movement applies to.
+</ResponseField>
+
+<ResponseField name="type" type="string" required>
+  Direction of the movement. Either `"IN"` (stock received) or `"OUT"` (stock dispatched).
+</ResponseField>
+
+<ResponseField name="quantity" type="number" required>
+  Number of units moved.
+</ResponseField>
+
+<ResponseField name="reason" type="string">
+  Human-readable explanation for the movement. `null` if not provided.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string" required>
+  UUID of the tenant this movement belongs to.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of when the movement was recorded.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string" required>
+  ISO 8601 timestamp of when the movement was last updated.
+</ResponseField>
+
+<ResponseField name="product" type="object" required>
+  The product linked to this movement.
+  <Expandable title="properties">
+    <ResponseField name="id" type="string" required>
+      Unique identifier for the product (UUID).
+    </ResponseField>
+    <ResponseField name="name" type="string" required>
+      Display name of the product.
+    </ResponseField>
+    <ResponseField name="sku" type="string" required>
+      Stock keeping unit identifier.
+    </ResponseField>
+    <ResponseField name="price" type="number" required>
+      Unit price of the product.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url http://localhost:5000/api/stock-movements \
+  --header 'Authorization: Bearer <token>'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/stock-movements', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer <token>',
+  },
+});
+
+const movements = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+[
+  {
+    "id": "e5f6a7b8-c9d0-1234-efab-567890123456",
+    "productId": "d4e5f6a7-b8c9-0123-defa-456789012345",
+    "type": "IN",
+    "quantity": 50,
+    "reason": "received from supplier",
+    "tenantId": "f0e1d2c3-b4a5-6789-cdef-012345678901",
+    "createdAt": "2024-03-18T14:00:00.000Z",
+    "updatedAt": "2024-03-18T14:00:00.000Z",
+    "product": {
+      "id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+      "name": "Widget Pro 3000",
+      "sku": "WGT-3000",
+      "price": 49.99
+    }
+  },
+  {
+    "id": "f6a7b8c9-d0e1-2345-fabc-678901234567",
+    "productId": "d4e5f6a7-b8c9-0123-defa-456789012345",
+    "type": "OUT",
+    "quantity": 5,
+    "reason": "sold to customer",
+    "tenantId": "f0e1d2c3-b4a5-6789-cdef-012345678901",
+    "createdAt": "2024-03-15T10:00:00.000Z",
+    "updatedAt": "2024-03-15T10:00:00.000Z",
+    "product": {
+      "id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+      "name": "Widget Pro 3000",
+      "sku": "WGT-3000",
+      "price": 49.99
+    }
+  }
+]
+```

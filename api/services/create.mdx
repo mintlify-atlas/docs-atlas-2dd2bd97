@@ -1,0 +1,113 @@
+---
+title: "Create service"
+description: "Create a new service in the tenant's catalog."
+---
+
+<Note>
+  Services do not have inventory records — use products for items that need stock tracking.
+</Note>
+
+## Endpoint
+
+```
+POST /api/services
+```
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token. Format: `Bearer <token>`
+</ParamField>
+
+## Request body
+
+<ParamField body="name" type="string" required>
+  Service display name.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional description of the service.
+</ParamField>
+
+<ParamField body="price" type="number" required>
+  Service price.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  Unique service identifier (UUID).
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Service display name.
+</ResponseField>
+
+<ResponseField name="description" type="string | null">
+  Optional description of the service.
+</ResponseField>
+
+<ResponseField name="price" type="number">
+  Service price.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string">
+  UUID of the tenant that owns this service.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp of when the service was created.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  ISO 8601 timestamp of the last update.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url http://localhost:5000/api/services \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "name": "Hardware Installation",
+    "description": "On-site installation of hardware components",
+    "price": 120.00
+  }'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/services', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer <token>',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    name: 'Hardware Installation',
+    description: 'On-site installation of hardware components',
+    price: 120.00,
+  }),
+});
+
+const service = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "id": "c3d4e5f6-a7b8-9012-cdef-012345678902",
+  "name": "Hardware Installation",
+  "description": "On-site installation of hardware components",
+  "price": 120.00,
+  "tenantId": "t9e8d7c6-b5a4-3210-fedc-ba9876543210",
+  "createdAt": "2026-03-24T10:00:00.000Z",
+  "updatedAt": "2026-03-24T10:00:00.000Z"
+}
+```

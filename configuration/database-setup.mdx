@@ -1,0 +1,220 @@
+---
+title: "Database setup"
+description: Set up PostgreSQL and run Prisma migrations for Inventory Pro.
+---
+
+## Prerequisites
+
+- PostgreSQL running locally or on a hosted provider
+- Node.js 18+ and npm installed
+- Backend dependencies installed (`npm install` inside the `backend/` directory)
+
+## Setup steps
+
+<Steps>
+  <Step title="Create the PostgreSQL database">
+    Connect to your PostgreSQL instance and create the database:
+
+    ```sql
+    CREATE DATABASE inventory_db;
+    ```
+  </Step>
+
+  <Step title="Set DATABASE_URL in backend/.env">
+    Create a `.env` file in the `backend/` directory with your connection string:
+
+    ```env backend/.env
+    DATABASE_URL="postgresql://user:password@localhost:5432/inventory_db"
+    JWT_SECRET="your-super-secret-jwt-key"
+    PORT=5000
+    NODE_ENV=development
+    ```
+
+    Replace `user`, `password`, and `localhost:5432` with your actual PostgreSQL credentials and host.
+  </Step>
+
+  <Step title="Generate the Prisma client">
+    Run this command from the `backend/` directory to generate the type-safe Prisma client:
+
+    ```bash
+    npm run prisma:generate
+    ```
+  </Step>
+
+  <Step title="Run migrations">
+    Apply the schema to your database:
+
+    ```bash
+    npm run prisma:migrate
+    ```
+
+    This creates all tables defined in `schema.prisma` and tracks migration history.
+  </Step>
+
+  <Step title="Seed the database (optional)">
+    Populate the database with sample data for development:
+
+    ```bash
+    npm run prisma:seed
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Always back up your production database before running migrations. Migrations can be destructive and are not automatically reversible.
+</Warning>
+
+## Prisma schema
+
+The full schema is located at `backend/prisma/schema.prisma`:
+
+```prisma backend/prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  users     User[]
+  products  Product[]
+  services  Service[]
+  customers Customer[]
+  inventory Inventory[]
+  movements StockMovement[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("user")
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  name      String
+  sku       String
+  price     Float
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  inventory Inventory?
+  movements StockMovement[]
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  address   String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Inventory {
+  id        String   @id @default(uuid())
+  productId String   @unique
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(0)
+  minStock  Int      @default(10)
+  maxStock  Int      @default(1000)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StockMovement {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      String   @enum(["IN", "OUT"])
+  quantity  Int
+  reason    String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum MovementType {
+  IN
+  OUT
+}
+```
+
+## Data models
+
+<AccordionGroup>
+  <Accordion title="Tenant">
+    Represents a business or organization using Inventory Pro. Every other model belongs to a tenant via a `tenantId` foreign key. Tenants are created automatically when a user registers. Has one-to-many relations to `User`, `Product`, `Service`, `Customer`, `Inventory`, and `StockMovement`.
+  </Accordion>
+
+  <Accordion title="User">
+    An individual who can log in to Inventory Pro. Each user belongs to exactly one tenant. Stores a hashed password, display name, email (unique globally), and a `role` field (defaults to `"user"`). Used for authentication and authorization.
+  </Accordion>
+
+  <Accordion title="Product">
+    A physical item tracked in inventory. Stores a name, SKU, and price. Each product belongs to one tenant and has an optional one-to-one `Inventory` record and zero or more `StockMovement` records.
+  </Accordion>
+
+  <Accordion title="Service">
+    A non-physical offering (e.g., installation, maintenance). Stores a name, optional description, and price. Belongs to one tenant but has no inventory tracking — services are not stocked.
+  </Accordion>
+
+  <Accordion title="Customer">
+    A customer record associated with a tenant. Stores name, email, and optional phone and address fields. Used for associating sales and stock movements with customers.
+  </Accordion>
+
+  <Accordion title="Inventory">
+    Tracks the current stock level for a single product. Has a one-to-one relationship with `Product`. Stores `quantity` (current stock), `minStock` (reorder threshold, default 10), and `maxStock` (capacity ceiling, default 1000).
+  </Accordion>
+
+  <Accordion title="StockMovement">
+    An immutable log entry recording a quantity change for a product. The `type` field is either `IN` (stock received) or `OUT` (stock dispatched). Includes an optional `reason` for audit purposes. Belongs to both a product and a tenant.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  All models use `onDelete: Cascade` on the `tenant` relation. Deleting a tenant permanently removes all associated users, products, services, customers, inventory records, and stock movements.
+</Note>
+
+## Available Prisma scripts
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `prisma:generate` | `prisma generate` | Generates the Prisma client from the schema |
+| `prisma:migrate` | `prisma migrate dev` | Applies pending migrations and creates new ones if the schema has changed |
+| `prisma:seed` | `ts-node src/prisma/seed.ts` | Populates the database with sample data |
+
+All scripts run from the `backend/` directory.

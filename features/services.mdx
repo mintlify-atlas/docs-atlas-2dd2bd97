@@ -1,0 +1,88 @@
+---
+title: "Services"
+description: Manage your service catalog with descriptions and pricing.
+---
+
+Services represent billable work your business offers — things like consulting, installation, or maintenance. Unlike products, services do not have associated stock levels or inventory records. They are tracked only by name, description, and price.
+
+<Note>
+  Services don't have inventory. Only products have stock levels tracked in the Inventory module. Use services for any offering that doesn't require physical stock.
+</Note>
+
+<Tip>
+  Use services for any billable work that doesn't require stock tracking — for example, labor charges, delivery fees, or recurring subscriptions.
+</Tip>
+
+## Service data model
+
+The `Service` model in the database schema:
+
+```prisma
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+The `description` field is optional. All other fields are required.
+
+## Viewing services
+
+Navigate to **Services** in the sidebar. The page displays your service catalog in a table with columns for Service Name, Description, Price, and Actions.
+
+Services are loaded from the backend via `GET /api/services`, with results filtered to your tenant.
+
+## Adding a service
+
+<Steps>
+  <Step title="Open the add service form">
+    Click the **Add Service** button in the top-right corner of the Services page.
+  </Step>
+  <Step title="Fill in the service details">
+    Complete the form fields:
+    - **Service Name** — required. A clear, descriptive name for the service.
+    - **Description** — optional. Additional context about what the service includes.
+    - **Price** — required. The price charged for this service.
+  </Step>
+  <Step title="Save the service">
+    Click **Save Service**. The backend creates the service record scoped to your `tenantId` and returns the new service object.
+  </Step>
+</Steps>
+
+## Editing a service
+
+Click **Edit** in the Actions column of any service row. The edit action sends a `PUT` request to `/api/services/:id` with the updated `name`, `description`, and `price` fields:
+
+```typescript
+router.put("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { name, description, price } = req.body
+
+  const service = await prisma.service.update({
+    where: { id },
+    data: { name, description, price },
+  })
+  res.json(service)
+})
+```
+
+## Deleting a service
+
+Click **Delete** in the Actions column. This sends a `DELETE` request to `/api/services/:id` and removes the service record from your catalog.
+
+## API reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/services` | List all services for your tenant |
+| `POST` | `/api/services` | Create a new service |
+| `PUT` | `/api/services/:id` | Update an existing service |
+| `DELETE` | `/api/services/:id` | Delete a service |
+
+All endpoints require a valid JWT in the `Authorization: Bearer <token>` header.

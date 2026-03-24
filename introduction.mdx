@@ -1,0 +1,65 @@
+---
+title: "Introduction"
+description: "Inventory Pro — a multi-tenant SaaS platform for managing products, services, inventory, and customers."
+---
+
+## What is Inventory Pro?
+
+Inventory Pro is a full-stack SaaS application designed for businesses that need to track their products, services, stock levels, and customers in one place. Each business (tenant) operates in a completely isolated data environment, ensuring your data is never mixed with other tenants.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Set up your account and start managing inventory in minutes
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    Understand the multi-tenant system design
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/auth/register">
+    Explore the full REST API
+  </Card>
+  <Card title="Core Features" icon="star" href="/features/dashboard">
+    Learn about products, inventory, and more
+  </Card>
+</CardGroup>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Multi-tenant architecture" icon="building">
+    Every business gets isolated data. Tenant filtering is applied automatically to every query — no cross-tenant data leakage.
+  </Card>
+  <Card title="Product & service catalog" icon="box">
+    Manage products with SKU and price, and services with descriptions and pricing, all in one catalog.
+  </Card>
+  <Card title="Real-time inventory tracking" icon="warehouse">
+    Track stock quantities with configurable minimum and maximum thresholds per product.
+  </Card>
+  <Card title="Stock movement logs" icon="arrows-left-right">
+    Record every inbound (IN) and outbound (OUT) stock movement with a reason, keeping a full audit trail.
+  </Card>
+  <Card title="Customer management" icon="users">
+    Store customer contact information including name, email, phone, and address.
+  </Card>
+  <Card title="Business metrics dashboard" icon="chart-bar">
+    See total products, services, customers, and stock movements at a glance on the dashboard.
+  </Card>
+</CardGroup>
+
+## Technology stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, Tailwind CSS |
+| Backend | Node.js, Express, Prisma ORM |
+| Database | PostgreSQL |
+| Auth (frontend) | Supabase |
+| Auth (API) | JWT + bcrypt |
+| Hosting | Vercel (frontend), Node.js host (backend) |
+
+## How tenancy works
+
+When you register, Inventory Pro creates a **Tenant** record for your business and associates your admin user account with it. Every subsequent API call uses a JWT that carries both `userId` and `tenantId`. The backend middleware verifies the token and injects `tenantId` into every database query automatically — you never need to filter by tenant yourself.
+
+<Note>
+  All API routes except `POST /api/auth/register` and `POST /api/auth/login` require a valid JWT bearer token.
+</Note>

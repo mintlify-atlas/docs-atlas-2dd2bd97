@@ -1,0 +1,154 @@
+---
+title: "Record stock movement"
+description: "Record an inbound or outbound stock movement and automatically update inventory."
+---
+
+<Note>
+  All endpoints require an `Authorization: Bearer <token>` header.
+</Note>
+
+## Endpoint
+
+```
+POST /api/stock-movements
+```
+
+## Request body
+
+<ParamField body="productId" type="string" required>
+  UUID of the product the movement applies to.
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Direction of the movement. Must be `"IN"` (stock received) or `"OUT"` (stock dispatched).
+</ParamField>
+
+<ParamField body="quantity" type="number" required>
+  Number of units to move.
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Human-readable explanation for the movement (e.g., `"received from supplier"`, `"sold to customer"`).
+</ParamField>
+
+<Note>
+  The `reason` field is optional but recommended. It is stored on the movement record and is useful for auditing inventory changes over time.
+</Note>
+
+## Response
+
+Returns the created stock movement record.
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the stock movement (UUID).
+</ResponseField>
+
+<ResponseField name="productId" type="string" required>
+  UUID of the product this movement applies to.
+</ResponseField>
+
+<ResponseField name="type" type="string" required>
+  Direction of the movement: `"IN"` or `"OUT"`.
+</ResponseField>
+
+<ResponseField name="quantity" type="number" required>
+  Number of units moved.
+</ResponseField>
+
+<ResponseField name="reason" type="string">
+  Explanation for the movement. `null` if not provided.
+</ResponseField>
+
+<ResponseField name="tenantId" type="string" required>
+  UUID of the tenant this movement belongs to.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of when the movement was recorded.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string" required>
+  ISO 8601 timestamp of when the movement was last updated.
+</ResponseField>
+
+## Side effects: inventory update
+
+Recording a movement also updates the corresponding inventory quantity automatically. The response only contains the movement record — query `GET /api/inventory` to see the updated quantity.
+
+| Movement type | Effect on `inventory.quantity` |
+|---|---|
+| `IN` | `inventory.quantity += quantity` |
+| `OUT` | `inventory.quantity -= quantity` |
+
+This is the code that performs the update in `stock-movements.ts`:
+
+```typescript
+// Update inventory
+if (type === "IN") {
+  await prisma.inventory.update({
+    where: { productId },
+    data: { quantity: { increment: quantity } },
+  })
+} else if (type === "OUT") {
+  await prisma.inventory.update({
+    where: { productId },
+    data: { quantity: { decrement: quantity } },
+  })
+}
+```
+
+<Warning>
+  Outbound movements (`type: "OUT"`) can push `inventory.quantity` below zero. The current implementation has no guard against negative stock. Validate that sufficient stock is available before recording an `OUT` movement.
+</Warning>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url http://localhost:5000/api/stock-movements \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "productId": "d4e5f6a7-b8c9-0123-defa-456789012345",
+    "type": "IN",
+    "quantity": 50,
+    "reason": "received from supplier"
+  }'
+```
+
+```javascript fetch
+const response = await fetch('http://localhost:5000/api/stock-movements', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer <token>',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    productId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
+    type: 'IN',
+    quantity: 50,
+    reason: 'received from supplier',
+  }),
+});
+
+const movement = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "id": "e5f6a7b8-c9d0-1234-efab-567890123456",
+  "productId": "d4e5f6a7-b8c9-0123-defa-456789012345",
+  "type": "IN",
+  "quantity": 50,
+  "reason": "received from supplier",
+  "tenantId": "f0e1d2c3-b4a5-6789-cdef-012345678901",
+  "createdAt": "2024-03-18T14:00:00.000Z",
+  "updatedAt": "2024-03-18T14:00:00.000Z"
+}
+```

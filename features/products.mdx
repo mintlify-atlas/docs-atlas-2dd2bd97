@@ -1,0 +1,96 @@
+---
+title: "Products"
+description: Manage your product catalog with SKU and price tracking.
+---
+
+Products are the physical items you stock and sell. Each product has a name, a unique SKU for identification, a price, and a current quantity on hand. Products are the foundation of the inventory system — every inventory record and stock movement is linked to a product.
+
+<Note>
+  Products are automatically scoped to your tenant. You will only ever see products that belong to your account.
+</Note>
+
+## Product data model
+
+The `Product` model in the database schema:
+
+```prisma
+model Product {
+  id        String   @id @default(uuid())
+  name      String
+  sku       String
+  price     Float
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventory Inventory?
+  movements StockMovement[]
+}
+```
+
+Each product has an optional one-to-one `Inventory` record and can have many `StockMovement` records over its lifetime.
+
+## Product interface
+
+The frontend represents a product with the following TypeScript interface, sourced from `app/products/page.tsx`:
+
+```typescript
+interface Product {
+  id: string
+  name: string
+  sku: string
+  price: number
+  quantity: number
+}
+```
+
+## Viewing products
+
+Navigate to **Products** in the sidebar. The page loads your full product list in a table with columns for Product Name, SKU, Price, Quantity, and Actions.
+
+Products are fetched from the API on page load:
+
+```typescript
+const response = await fetch("/api/products", {
+  headers: { Authorization: `Bearer ${token}` },
+})
+```
+
+The JWT token is read from `localStorage` and sent in the `Authorization` header on every request. The backend filters results by `tenantId` extracted from the token.
+
+## Adding a product
+
+<Steps>
+  <Step title="Open the add product form">
+    Click the **Add Product** button in the top-right corner of the Products page. A form appears above the product table.
+  </Step>
+  <Step title="Fill in the product details">
+    Complete the required fields:
+    - **Product Name** — a descriptive name for the item
+    - **SKU** — a unique stock-keeping unit identifier
+    - **Price** — the unit price as a decimal number
+  </Step>
+  <Step title="Save the product">
+    Click **Save Product**. The form submits a `POST` request to `/api/products` with a JSON body containing `name`, `sku`, and `price`. On success, the form closes and the product list refreshes.
+  </Step>
+</Steps>
+
+## Deleting a product
+
+In the Actions column of the product table, click **Delete** next to the product you want to remove. This sends a `DELETE` request to `/api/products/:id`. The product list refreshes automatically after deletion.
+
+<Warning>
+  Deleting a product also deletes its associated inventory record and stock movements due to the `onDelete: Cascade` constraint in the database schema.
+</Warning>
+
+## API reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/products` | List all products for your tenant |
+| `POST` | `/api/products` | Create a new product |
+| `PUT` | `/api/products/:id` | Update an existing product |
+| `DELETE` | `/api/products/:id` | Delete a product |
+
+All endpoints require a valid JWT in the `Authorization: Bearer <token>` header.

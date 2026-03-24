@@ -1,0 +1,62 @@
+---
+title: "Delete service"
+description: "Permanently delete a service."
+---
+
+## Endpoint
+
+```
+DELETE /api/services/:id
+```
+
+## Authentication
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token. Format: `Bearer <token>`
+</ParamField>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Service UUID.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` on successful deletion.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl --request DELETE \
+  --url http://localhost:5000/api/services/c3d4e5f6-a7b8-9012-cdef-012345678902 \
+  --header 'Authorization: Bearer <token>'
+```
+
+```javascript fetch
+const response = await fetch(
+  'http://localhost:5000/api/services/c3d4e5f6-a7b8-9012-cdef-012345678902',
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer <token>',
+    },
+  }
+);
+
+const result = await response.json();
+```
+
+</CodeGroup>
+
+### Example response
+
+```json
+{
+  "success": true
+}
+```
